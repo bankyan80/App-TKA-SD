@@ -1,0 +1,250 @@
+<script>
+
+lucide.createIcons();
+
+let allParticipants = [];
+let participantHeaders = [];
+let allPengawas = [];
+let pengawasHeaders = [];
+
+const hidePengawas = ["NAMA SEKOLAH","KECAMATAN","GELOMBANG","NIP/NIK","EMAIL"];
+const hidePeserta = ["SYNC","LOG","STATUS","LAST UPDATE"];
+
+const urlP = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRChbpO3l3-_XMGNtyZqGwNkBeYurPWxC92Ci66Fi4hp6FZ5R5co_AxcvsXAGGU6HzxxVK89SmzH8GW/pub?gid=0&single=true&output=csv";
+const urlW = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRngw8aAuecFTOlLeM2jaLLZPOmiDWkXpN5XvlRyvsSQ8bVgeuMBIFDSkvgjP0r7wepHloLxB54wF1t/pub?gid=1363498891&single=true&output=csv";
+
+
+/* =========================
+   PARSER CSV CEPAT
+========================= */
+
+function parseCSV(text){
+    return text.trim().split("\n").map(r => r.split(","));
+}
+
+
+/* =========================
+   LOAD DATA (LEBIH CEPAT)
+========================= */
+
+async function loadData(){
+
+    try{
+
+        const [p,w] = await Promise.all([
+            fetch(urlP).then(r=>r.text()),
+            fetch(urlW).then(r=>r.text())
+        ]);
+
+        const rowsP = parseCSV(p);
+        const rowsW = parseCSV(w);
+
+        participantHeaders = rowsP.shift();
+        pengawasHeaders = rowsW.shift();
+
+        allParticipants = rowsP;
+        allPengawas = rowsW;
+
+        renderHeaders();
+        calcTotal();
+
+        updatePesertaDisplay();
+        updatePengawasDisplay();
+
+    }catch(e){
+
+        console.error(e);
+
+    }
+
+}
+
+
+/* =========================
+   HEADER TABLE
+========================= */
+
+function renderHeader(id, headers, hidden){
+
+    const tr = document.createElement("tr");
+
+    headers.forEach(h=>{
+
+        const th = document.createElement("th");
+
+        const isHidden = hidden.some(x=>h.toUpperCase().includes(x));
+
+        th.className = "p-3 border-b text-[9px] " + (isHidden?"hidden-column":"");
+
+        th.textContent = h;
+
+        tr.appendChild(th);
+
+    });
+
+    const el=document.getElementById(id);
+    el.innerHTML="";
+    el.appendChild(tr);
+
+}
+
+function renderHeaders(){
+
+    renderHeader("pesertaHeader",participantHeaders,hidePeserta);
+    renderHeader("pengawasHeader",pengawasHeaders,hidePengawas);
+
+}
+
+
+/* =========================
+   TOTAL PESERTA
+========================= */
+
+function calcTotal(){
+
+    const idx = participantHeaders.findIndex(h=>h.toUpperCase().includes("PESERTA"));
+
+    if(idx==-1)return;
+
+    let total=0;
+
+    allParticipants.forEach(r=>{
+        total += Number(r[idx])||0;
+    });
+
+    document.getElementById("counterPeserta").innerText =
+        new Intl.NumberFormat("id-ID").format(total);
+
+}
+
+
+/* =========================
+   RENDER TABLE CEPAT
+========================= */
+
+function updateTable(tbodyId, headers, data, hidden, search, limit){
+
+    const tbody = document.getElementById(tbodyId);
+
+    const limitNum = limit==="all"?data.length:Number(limit);
+
+    let result = data;
+
+    if(search){
+
+        result = data.filter(r=>
+            r.join(" ").toLowerCase().includes(search)
+        );
+
+    }
+
+    result = result.slice(0,limitNum);
+
+    if(result.length===0){
+
+        tbody.innerHTML=`<tr><td colspan="20" class="p-8 text-center">Data tidak ditemukan</td></tr>`;
+
+        return;
+    }
+
+    tbody.innerHTML = result.map(r=>`
+
+        <tr class="border-b hover:bg-slate-50">
+
+        ${r.map((c,i)=>{
+
+            const isHidden = hidden.some(x=>headers[i] && headers[i].toUpperCase().includes(x));
+
+            return `<td class="p-3 ${isHidden?"hidden-column":""}">${c||""}</td>`
+
+        }).join("")}
+
+        </tr>
+
+    `).join("");
+
+}
+
+
+/* =========================
+   FILTER DISPLAY
+========================= */
+
+function updatePengawasDisplay(){
+
+    const s=document.getElementById("pengawasSearch").value.toLowerCase();
+    const l=document.getElementById("pengawasLimit").value;
+
+    updateTable("pengawasBody",pengawasHeaders,allPengawas,hidePengawas,s,l);
+
+}
+
+function updatePesertaDisplay(){
+
+    const s=document.getElementById("pesertaSearch").value.toLowerCase();
+    const l=document.getElementById("pesertaLimit").value;
+
+    updateTable("pesertaBody",participantHeaders,allParticipants,hidePeserta,s,l);
+
+}
+
+
+/* =========================
+   SLIDE JADWAL (FIX)
+========================= */
+
+const waves=[
+{n:"1",d:"20 - 21 APRIL"},
+{n:"2",d:"22 - 23 APRIL"},
+{n:"3",d:"27 - 28 APRIL"},
+{n:"4",d:"29 - 30 APRIL"}
+];
+
+let wIdx=0;
+
+function startSlideJadwal(){
+
+const num=document.getElementById("waveNumber");
+const date=document.getElementById("waveDate");
+
+setInterval(()=>{
+
+    wIdx++;
+
+    if(wIdx>=waves.length)wIdx=0;
+
+    num.style.transition="opacity .4s";
+    date.style.transition="opacity .4s";
+
+    num.style.opacity=0;
+    date.style.opacity=0;
+
+    setTimeout(()=>{
+
+        num.innerText=waves[wIdx].n;
+        date.innerText=waves[wIdx].d;
+
+        num.style.opacity=1;
+        date.style.opacity=1;
+
+    },400);
+
+},4000);
+
+}
+
+
+/* =========================
+   START APP
+========================= */
+
+document.addEventListener("DOMContentLoaded",()=>{
+
+loadData();
+
+startSlideJadwal();
+
+});
+
+
+</script>
