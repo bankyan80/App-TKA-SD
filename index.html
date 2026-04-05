@@ -2,7 +2,7 @@
 <html lang="id" class="h-full">
  <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>TKA Real-Time Monitoring</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
@@ -12,23 +12,26 @@
   <script>if(typeof firebase!=='undefined'&&typeof firebase.database==='undefined'){document.write('<script src="https://unpkg.com/firebase@10.12.2/firebase-database-compat.js"><\/script>')}</script>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    * { font-family: 'Poppins', sans-serif; }
+    * { font-family: 'Poppins', sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     .mono { font-family: 'Space Mono', monospace; }
-    html, body { height: 100%; }
+    html, body { height: 100%; margin: 0; padding: 0; }
     body { background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 50%, #16213e 100%); }
-    .glass { background: rgba(255,255,255,0.04); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
-    .glass-dark { background: rgba(0,0,0,0.3); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
-    .input-field { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #e0e7ff; transition: all 0.2s; }
+    .glass { background: rgba(255,255,255,0.04); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+    .glass-dark { background: rgba(0,0,0,0.3); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+    .input-field { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #e0e7ff; transition: all 0.2s; font-size: 16px; /* prevent iOS zoom */}
     .input-field:focus { border-color: #818cf8; outline: none; background: rgba(255,255,255,0.08); box-shadow: 0 0 0 2px rgba(129,140,248,0.15); }
     .input-field::placeholder { color: rgba(255,255,255,0.3); }
     .input-field:read-only { opacity: 0.7; cursor: not-allowed; }
     .btn-primary { background: linear-gradient(135deg, #6366f1, #7c3aed); transition: all 0.2s; box-shadow: 0 4px 15px rgba(99,102,241,0.3); }
     .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
+    .btn-primary:active { transform: translateY(0); }
     .btn-secondary { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s; }
     .btn-secondary:hover { background: rgba(255,255,255,0.12); }
-    .tab-btn { padding: 0.75rem 1rem; border-bottom: 2px solid transparent; transition: all 0.2s; font-weight: 500; }
+    .tab-btn { padding: 0.625rem 0.75rem; border-bottom: 2px solid transparent; transition: all 0.2s; font-weight: 500; white-space: nowrap; font-size: 0.8125rem; }
+    @media (min-width: 640px) { .tab-btn { padding: 0.75rem 1rem; font-size: 0.875rem; } }
     .tab-btn.active { border-bottom-color: #6366f1; color: #6366f1; }
-    .checkbox-custom { appearance: none; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.2); border-radius: 0.4rem; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.02); }
+    .checkbox-custom { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; min-width: 22px; border: 2px solid rgba(255,255,255,0.2); border-radius: 0.4rem; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.02); }
+    @media (min-width: 640px) { .checkbox-custom { width: 20px; height: 20px; min-width: 20px; } }
     .checkbox-custom:checked { background: linear-gradient(135deg, #6366f1, #7c3aed); border-color: #6366f1; }
     .progress-bar { background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
     .progress-fill { height: 100%; background: linear-gradient(90deg, #6366f1, #7c3aed); transition: width 0.4s ease; }
@@ -36,26 +39,34 @@
     select.input-field option { background: #1a1a2e; color: #e0e7ff; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #818cf8; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; vertical-align: middle; }
+    /* Toast responsive */
+    #toast-container { left: 16px; right: 16px; max-width: 400px; }
+    @media (min-width: 640px) { #toast-container { left: auto; right: 16px; } }
+    /* Photo delete button always visible on touch devices */
+    @media (hover: none) { .photo-delete-overlay { opacity: 1 !important; } }
+    /* Safe area for notched phones */
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+      main { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+    }
   </style>
-  <style>body { box-sizing: border-box; }</style>
  </head>
  <body class="h-full text-gray-100 overflow-auto">
   <div id="app" class="w-full h-full flex flex-col">
-   <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2 pointer-events-auto"></div>
+   <div id="toast-container" class="fixed top-4 z-50 space-y-2 pointer-events-auto"></div>
 
    <!-- MAIN APP -->
    <div id="main-app" class="w-full h-full flex flex-col">
 
     <!-- Header -->
-    <header class="w-full px-4 sm:px-6 py-5 border-b border-white/10 backdrop-blur-xl">
-     <div class="max-w-6xl mx-auto">
-      <div class="flex items-center gap-4">
-       <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-        <i data-lucide="zap" style="width:20px;height:20px;color:white;"></i>
+    <header class="w-full px-4 sm:px-6 py-3 sm:py-5 border-b border-white/10 backdrop-blur-xl">
+     <div class="max-w-4xl mx-auto">
+      <div class="flex items-center gap-3 sm:gap-4">
+       <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+        <i data-lucide="zap" style="width:18px;height:18px;color:white;"></i>
        </div>
-       <div>
-        <h1 id="el-title" class="text-lg sm:text-xl font-bold text-white">TKA Real-Time Monitoring</h1>
-        <p id="el-subtitle" class="text-xs sm:text-sm text-gray-400"><span id="el-institution">Dinas Pendidikan</span> &middot; Live Dashboard</p>
+       <div class="min-w-0">
+        <h1 id="el-title" class="text-base sm:text-xl font-bold text-white truncate">TKA Real-Time Monitoring</h1>
+        <p id="el-subtitle" class="text-xs text-gray-400 truncate"><span id="el-institution">Dinas Pendidikan</span> &middot; Live Dashboard</p>
        </div>
       </div>
      </div>
@@ -63,81 +74,81 @@
 
     <!-- Main Content -->
     <main class="flex-1 overflow-auto">
-     <div class="w-full px-4 sm:px-6 py-6 max-w-6xl mx-auto">
+     <div class="w-full px-3 sm:px-6 py-4 sm:py-6 max-w-4xl mx-auto">
 
       <!-- Stat Cards -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-       <div class="glass rounded-lg p-4">
-        <p class="text-gray-400 text-xs mb-2">Status</p>
-        <p id="stat-status" class="text-lg font-bold text-white">Belum Mulai</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
+       <div class="glass rounded-lg p-3 sm:p-4">
+        <p class="text-gray-400 text-xs mb-1">Status</p>
+        <p id="stat-status" class="text-sm sm:text-lg font-bold text-white truncate">Belum Mulai</p>
        </div>
-       <div class="glass rounded-lg p-4">
-        <p class="text-gray-400 text-xs mb-2">Progress</p>
-        <p id="stat-progress" class="text-lg font-bold text-indigo-400">0%</p>
+       <div class="glass rounded-lg p-3 sm:p-4">
+        <p class="text-gray-400 text-xs mb-1">Progress</p>
+        <p id="stat-progress" class="text-sm sm:text-lg font-bold text-indigo-400">0%</p>
        </div>
-       <div class="glass rounded-lg p-4">
-        <p class="text-gray-400 text-xs mb-2">Checklist</p>
-        <p id="stat-checklist" class="text-lg font-bold text-white">0/13</p>
+       <div class="glass rounded-lg p-3 sm:p-4">
+        <p class="text-gray-400 text-xs mb-1">Checklist</p>
+        <p id="stat-checklist" class="text-sm sm:text-lg font-bold text-white">0/13</p>
        </div>
-       <div class="glass rounded-lg p-4">
-        <p class="text-gray-400 text-xs mb-2">Waktu</p>
-        <p id="stat-time" class="text-sm font-mono text-gray-300">--:--:--</p>
+       <div class="glass rounded-lg p-3 sm:p-4">
+        <p class="text-gray-400 text-xs mb-1">Waktu</p>
+        <p id="stat-time" class="text-sm sm:text-sm font-mono text-gray-300">--:--:--</p>
        </div>
       </div>
 
       <!-- School Selection -->
-      <div class="glass rounded-xl p-6 mb-6">
-       <h2 class="text-lg font-bold text-white mb-4">Pilih Sekolah</h2>
+      <div class="glass rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
+       <h2 class="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4">Pilih Sekolah</h2>
        <div id="school-loading" class="flex items-center gap-2 text-sm text-gray-400 mb-4">
         <span class="spinner"></span> Memuat data sekolah...
        </div>
-       <select id="school-select" class="input-field w-full px-3 py-2.5 rounded-lg text-sm" onchange="onSchoolSelected()" style="display:none;">
+       <select id="school-select" class="input-field w-full px-3 py-3 sm:py-2.5 rounded-lg text-sm" onchange="onSchoolSelected()" style="display:none;">
         <option value="">-- Pilih Sekolah --</option>
        </select>
-       <div id="panitia-info" class="mt-4 hidden">
-        <div class="grid grid-cols-2 gap-3 text-sm">
-         <div class="p-3 glass-dark rounded-lg">
+       <div id="panitia-info" class="mt-3 sm:mt-4 hidden">
+        <div class="grid grid-cols-2 gap-2 sm:gap-3 text-sm">
+         <div class="p-2.5 sm:p-3 glass-dark rounded-lg">
           <span class="text-gray-400 text-xs">Proktor</span>
-          <p id="info-proktor" class="text-white font-medium">-</p>
+          <p id="info-proktor" class="text-white font-medium text-sm truncate">-</p>
          </div>
-         <div class="p-3 glass-dark rounded-lg">
+         <div class="p-2.5 sm:p-3 glass-dark rounded-lg">
           <span class="text-gray-400 text-xs">Teknisi</span>
-          <p id="info-teknisi" class="text-white font-medium">-</p>
+          <p id="info-teknisi" class="text-white font-medium text-sm truncate">-</p>
          </div>
-         <div class="p-3 glass-dark rounded-lg">
+         <div class="p-2.5 sm:p-3 glass-dark rounded-lg">
           <span class="text-gray-400 text-xs">Pengawas</span>
-          <p id="info-pengawas" class="text-white font-medium">-</p>
+          <p id="info-pengawas" class="text-white font-medium text-sm truncate">-</p>
          </div>
-         <div class="p-3 glass-dark rounded-lg">
+         <div class="p-2.5 sm:p-3 glass-dark rounded-lg">
           <span class="text-gray-400 text-xs">Peserta</span>
-          <p id="info-peserta" class="text-white font-medium">-</p>
+          <p id="info-peserta" class="text-white font-medium text-sm">-</p>
          </div>
         </div>
        </div>
       </div>
 
       <!-- Profil & Sesi -->
-      <div id="profile-card" class="glass rounded-xl p-6" style="display:none">
-       <h2 class="text-lg font-bold text-white mb-5">Profil &amp; Sesi</h2>
-       <div class="grid grid-cols-2 gap-4 mb-6">
+      <div id="profile-card" class="glass rounded-xl p-4 sm:p-6" style="display:none">
+       <h2 class="text-base sm:text-lg font-bold text-white mb-4 sm:mb-5">Profil &amp; Sesi</h2>
+       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div>
-         <label class="block text-xs text-gray-400 mb-2 font-medium">Nama Proktor *</label>
+         <label class="block text-xs text-gray-400 mb-1.5 sm:mb-2 font-medium">Nama Proktor *</label>
          <input id="p-name" type="text" placeholder="Nama Anda" class="input-field w-full px-3 py-2.5 rounded-lg text-sm">
         </div>
         <div>
-         <label class="block text-xs text-gray-400 mb-2 font-medium">Sekolah *</label>
+         <label class="block text-xs text-gray-400 mb-1.5 sm:mb-2 font-medium">Sekolah *</label>
          <input id="p-school" type="text" placeholder="Nama Sekolah" class="input-field w-full px-3 py-2.5 rounded-lg text-sm" readonly>
         </div>
         <div>
-         <label class="block text-xs text-gray-400 mb-2 font-medium">Ruang/Kelas *</label>
+         <label class="block text-xs text-gray-400 mb-1.5 sm:mb-2 font-medium">Ruang/Kelas *</label>
          <input id="p-room" type="text" placeholder="Ruang 1" class="input-field w-full px-3 py-2.5 rounded-lg text-sm">
         </div>
         <div>
-         <label class="block text-xs text-gray-400 mb-2 font-medium">Tanggal Pelaksanaan *</label>
+         <label class="block text-xs text-gray-400 mb-1.5 sm:mb-2 font-medium">Tanggal Pelaksanaan *</label>
          <input id="p-date" type="date" class="input-field w-full px-3 py-2.5 rounded-lg text-sm" readonly>
         </div>
         <div>
-         <label class="block text-xs text-gray-400 mb-2 font-medium">Gelombang *</label>
+         <label class="block text-xs text-gray-400 mb-1.5 sm:mb-2 font-medium">Gelombang *</label>
          <select id="p-wave" class="input-field w-full px-3 py-2.5 rounded-lg text-sm">
           <option value="">Pilih Gelombang</option>
           <option value="Gelombang 1">Gelombang 1</option>
@@ -146,7 +157,7 @@
          </select>
         </div>
         <div>
-         <label class="block text-xs text-gray-400 mb-2 font-medium">Sesi *</label>
+         <label class="block text-xs text-gray-400 mb-1.5 sm:mb-2 font-medium">Sesi *</label>
          <select id="p-session" class="input-field w-full px-3 py-2.5 rounded-lg text-sm">
           <option value="">Pilih Sesi</option>
           <option value="Sesi 1 (07:00-08:30)">Sesi 1 (07:00-08:30)</option>
@@ -155,20 +166,20 @@
          </select>
         </div>
         <div>
-         <label class="block text-xs text-gray-400 mb-2 font-medium">Peserta Hadir *</label>
+         <label class="block text-xs text-gray-400 mb-1.5 sm:mb-2 font-medium">Peserta Hadir *</label>
          <input id="p-attendance" type="number" min="0" placeholder="0" class="input-field w-full px-3 py-2.5 rounded-lg text-sm" readonly>
         </div>
         <div>
-         <label class="block text-xs text-gray-400 mb-2 font-medium">Pengawas Ruang *</label>
+         <label class="block text-xs text-gray-400 mb-1.5 sm:mb-2 font-medium">Pengawas Ruang *</label>
          <input id="p-supervisor" type="text" placeholder="Nama pengawas ruang" class="input-field w-full px-3 py-2.5 rounded-lg text-sm" readonly>
         </div>
        </div>
-       <button onclick="saveProfile()" class="w-full py-2.5 rounded-lg font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition flex items-center justify-center gap-2 mb-6">
-        <i data-lucide="save" style="width:16px;height:16px;"></i>Simpan Profil &amp; Sesi
+       <button onclick="saveProfile()" class="w-full py-2.5 sm:py-2.5 rounded-lg font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition flex items-center justify-center gap-2 mb-4 sm:mb-6 text-sm sm:text-base active:opacity-90">
+        <i data-lucide="save" style="width:16px;height:16px;"></i><span>Simpan Profil &amp; Sesi</span>
        </button>
 
        <!-- Checklist Tabs -->
-       <div class="border-b border-white/10 mb-6 flex gap-2 overflow-x-auto">
+       <div class="border-b border-white/10 mb-4 sm:mb-6 flex gap-1 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 scrollbar-hide" style="scrollbar-width: none; -ms-overflow-style: none;">
         <button onclick="switchTab('pra')" class="tab-btn active text-indigo-400" id="tab-pra">Pra</button>
         <button onclick="switchTab('saat')" class="tab-btn text-gray-400" id="tab-saat">Saat</button>
         <button onclick="switchTab('pasca')" class="tab-btn text-gray-400" id="tab-pasca">Pasca</button>
@@ -177,144 +188,144 @@
        </div>
 
        <!-- Checklist Pra (4 item) -->
-       <div id="checklist-pra" class="space-y-4">
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-pra-1" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1">
-          <label for="c-pra-1" class="text-sm font-medium text-white cursor-pointer">Sinkronisasi data berhasil</label>
+       <div id="checklist-pra" class="space-y-3">
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-pra-1" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0">
+          <label for="c-pra-1" class="text-sm font-medium text-white cursor-pointer block">Sinkronisasi data berhasil</label>
           <p class="text-xs text-gray-500">Koneksi server pusat stabil</p>
          </div>
         </div>
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-pra-2" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1">
-          <label for="c-pra-2" class="text-sm font-medium text-white cursor-pointer">Sistem CBT siap</label>
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-pra-2" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0">
+          <label for="c-pra-2" class="text-sm font-medium text-white cursor-pointer block">Sistem CBT siap</label>
           <p class="text-xs text-gray-500">Semua workstation sudah boot normal</p>
          </div>
         </div>
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-pra-3" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1">
-          <label for="c-pra-3" class="text-sm font-medium text-white cursor-pointer">Internet stabil</label>
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-pra-3" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0">
+          <label for="c-pra-3" class="text-sm font-medium text-white cursor-pointer block">Internet stabil</label>
           <p class="text-xs text-gray-500">Bandwidth cukup untuk semua peserta</p>
          </div>
         </div>
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-pra-4" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1">
-          <label for="c-pra-4" class="text-sm font-medium text-white cursor-pointer">Peserta siap di ruang</label>
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-pra-4" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0">
+          <label for="c-pra-4" class="text-sm font-medium text-white cursor-pointer block">Peserta siap di ruang</label>
           <p class="text-xs text-gray-500">Absensi lengkap dan peserta fokus</p>
          </div>
         </div>
        </div>
 
        <!-- Checklist Saat (5 item) -->
-       <div id="checklist-saat" class="space-y-4 hidden">
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-saat-1" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1"><label for="c-saat-1" class="text-sm font-medium text-white cursor-pointer">Ujian dimulai tepat waktu</label></div>
+       <div id="checklist-saat" class="space-y-3 hidden">
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-saat-1" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0"><label for="c-saat-1" class="text-sm font-medium text-white cursor-pointer block">Ujian dimulai tepat waktu</label></div>
         </div>
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-saat-2" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1"><label for="c-saat-2" class="text-sm font-medium text-white cursor-pointer">Sistem berjalan normal</label></div>
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-saat-2" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0"><label for="c-saat-2" class="text-sm font-medium text-white cursor-pointer block">Sistem berjalan normal</label></div>
         </div>
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-saat-3" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1"><label for="c-saat-3" class="text-sm font-medium text-white cursor-pointer">Jaringan stabil</label></div>
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-saat-3" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0"><label for="c-saat-3" class="text-sm font-medium text-white cursor-pointer block">Jaringan stabil</label></div>
         </div>
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-saat-4" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1"><label for="c-saat-4" class="text-sm font-medium text-white cursor-pointer">Proktor aktif mengawasi</label></div>
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-saat-4" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0"><label for="c-saat-4" class="text-sm font-medium text-white cursor-pointer block">Proktor aktif mengawasi</label></div>
         </div>
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-saat-5" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1"><label for="c-saat-5" class="text-sm font-medium text-white cursor-pointer">Tidak ada kecurangan</label></div>
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-saat-5" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0"><label for="c-saat-5" class="text-sm font-medium text-white cursor-pointer block">Tidak ada kecurangan</label></div>
         </div>
        </div>
 
        <!-- Checklist Pasca (4 item) -->
-       <div id="checklist-pasca" class="space-y-4 hidden">
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-pasca-1" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1"><label for="c-pasca-1" class="text-sm font-medium text-white cursor-pointer">Semua peserta selesai</label></div>
+       <div id="checklist-pasca" class="space-y-3 hidden">
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-pasca-1" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0"><label for="c-pasca-1" class="text-sm font-medium text-white cursor-pointer block">Semua peserta selesai</label></div>
         </div>
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-pasca-2" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1"><label for="c-pasca-2" class="text-sm font-medium text-white cursor-pointer">Data terkirim ke server</label></div>
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-pasca-2" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0"><label for="c-pasca-2" class="text-sm font-medium text-white cursor-pointer block">Data terkirim ke server</label></div>
         </div>
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-pasca-3" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1"><label for="c-pasca-3" class="text-sm font-medium text-white cursor-pointer">Tidak ada data gagal</label></div>
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-pasca-3" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0"><label for="c-pasca-3" class="text-sm font-medium text-white cursor-pointer block">Tidak ada data gagal</label></div>
         </div>
-        <div class="flex items-start gap-3 p-3 glass-dark rounded-lg">
-         <input type="checkbox" id="c-pasca-4" class="checkbox-custom mt-1" onchange="updateProgress()">
-         <div class="flex-1"><label for="c-pasca-4" class="text-sm font-medium text-white cursor-pointer">Logout &amp; sesi ditutup</label></div>
+        <div class="flex items-start gap-3 p-3 sm:p-3 glass-dark rounded-lg active:bg-white/5 transition">
+         <input type="checkbox" id="c-pasca-4" class="checkbox-custom mt-0.5 sm:mt-1" onchange="updateProgress()">
+         <div class="flex-1 min-w-0"><label for="c-pasca-4" class="text-sm font-medium text-white cursor-pointer block">Logout &amp; sesi ditutup</label></div>
         </div>
        </div>
 
        <!-- Checklist Kendala -->
-       <div id="checklist-kendala" class="space-y-4 hidden">
-        <div class="p-4 glass-dark rounded-lg">
-         <label class="block text-xs text-gray-400 mb-2 font-medium">Jenis Kendala</label>
-         <select id="kendala-jenis" class="input-field w-full px-3 py-2.5 rounded-lg text-sm">
+       <div id="checklist-kendala" class="space-y-3 hidden">
+        <div class="p-3 sm:p-4 glass-dark rounded-lg">
+         <label class="block text-xs text-gray-400 mb-1.5 sm:mb-2 font-medium">Jenis Kendala</label>
+         <select id="kendala-jenis" class="input-field w-full px-3 py-3 sm:py-2.5 rounded-lg text-sm">
           <option value="">Pilih jenis kendala (jika ada)</option>
           <option value="Jaringan">Jaringan Internet</option>
           <option value="Server">Server/Database</option>
           <option value="Hardware">Hardware/Workstation</option>
          </select>
         </div>
-        <div class="p-4 glass-dark rounded-lg">
-         <label class="block text-xs text-gray-400 mb-2 font-medium">Deskripsi Kendala</label>
+        <div class="p-3 sm:p-4 glass-dark rounded-lg">
+         <label class="block text-xs text-gray-400 mb-1.5 sm:mb-2 font-medium">Deskripsi Kendala</label>
          <textarea id="kendala-deskripsi" placeholder="Jelaskan kendala..." class="input-field w-full px-3 py-2.5 rounded-lg text-sm h-24 resize-none"></textarea>
         </div>
        </div>
 
        <!-- Checklist Dokumen -->
-       <div id="checklist-dokumen" class="space-y-4 hidden">
-        <div class="p-4 glass rounded-lg border border-indigo-500/30 bg-indigo-500/10">
-         <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+       <div id="checklist-dokumen" class="space-y-3 hidden">
+        <div class="p-3 sm:p-4 glass rounded-lg border border-indigo-500/30 bg-indigo-500/10">
+         <h3 class="text-sm font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
           <i data-lucide="cloud-upload" style="width:16px;height:16px;"></i>Status Upload ke Web TKA
          </h3>
-         <div class="space-y-3">
-          <div class="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
-           <span class="text-sm text-gray-300 font-medium">Berita Acara sudah diupload?</span>
-           <div class="flex gap-2">
-            <button onclick="setDocStatus('berita_acara', true)" class="px-3 py-1.5 rounded text-xs font-medium transition" id="btn-ba-yes" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #e0e7ff;">Sudah</button>
-            <button onclick="setDocStatus('berita_acara', false)" class="px-3 py-1.5 rounded text-xs font-medium transition bg-red-600/20 border border-red-500/30 text-red-300" id="btn-ba-no">Belum</button>
+         <div class="space-y-2.5 sm:space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg bg-black/20 border border-white/5">
+           <span class="text-sm text-gray-300 font-medium leading-snug">Berita Acara sudah diupload?</span>
+           <div class="flex gap-2 shrink-0">
+            <button onclick="setDocStatus('berita_acara', true)" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-medium transition" id="btn-ba-yes" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #e0e7ff;">Sudah</button>
+            <button onclick="setDocStatus('berita_acara', false)" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-medium transition bg-red-600/20 border border-red-500/30 text-red-300" id="btn-ba-no">Belum</button>
            </div>
           </div>
-          <div class="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
-           <span class="text-sm text-gray-300 font-medium">Daftar Kehadiran Peserta sudah diupload?</span>
-           <div class="flex gap-2">
-            <button onclick="setDocStatus('peserta_hadir', true)" class="px-3 py-1.5 rounded text-xs font-medium transition" id="btn-ph-yes" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #e0e7ff;">Sudah</button>
-            <button onclick="setDocStatus('peserta_hadir', false)" class="px-3 py-1.5 rounded text-xs font-medium transition bg-red-600/20 border border-red-500/30 text-red-300" id="btn-ph-no">Belum</button>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg bg-black/20 border border-white/5">
+           <span class="text-sm text-gray-300 font-medium leading-snug">Daftar Kehadiran Peserta sudah diupload?</span>
+           <div class="flex gap-2 shrink-0">
+            <button onclick="setDocStatus('peserta_hadir', true)" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-medium transition" id="btn-ph-yes" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #e0e7ff;">Sudah</button>
+            <button onclick="setDocStatus('peserta_hadir', false)" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-medium transition bg-red-600/20 border border-red-500/30 text-red-300" id="btn-ph-no">Belum</button>
            </div>
           </div>
-          <div class="flex items-center justify-between p-3 rounded-lg bg-black/20 border border-white/5">
-           <span class="text-sm text-gray-300 font-medium">Daftar Kehadiran Pengawas Ruang sudah diupload?</span>
-           <div class="flex gap-2">
-            <button onclick="setDocStatus('pengawas', true)" class="px-3 py-1.5 rounded text-xs font-medium transition" id="btn-pw-yes" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #e0e7ff;">Sudah</button>
-            <button onclick="setDocStatus('pengawas', false)" class="px-3 py-1.5 rounded text-xs font-medium transition bg-red-600/20 border border-red-500/30 text-red-300" id="btn-pw-no">Belum</button>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg bg-black/20 border border-white/5">
+           <span class="text-sm text-gray-300 font-medium leading-snug">Daftar Kehadiran Pengawas Ruang sudah diupload?</span>
+           <div class="flex gap-2 shrink-0">
+            <button onclick="setDocStatus('pengawas', true)" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-medium transition" id="btn-pw-yes" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #e0e7ff;">Sudah</button>
+            <button onclick="setDocStatus('pengawas', false)" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-medium transition bg-red-600/20 border border-red-500/30 text-red-300" id="btn-pw-no">Belum</button>
            </div>
           </div>
          </div>
         </div>
-        <div class="p-4 glass-dark rounded-lg">
+        <div class="p-3 sm:p-4 glass-dark rounded-lg">
          <label class="block text-xs text-gray-400 mb-3 font-medium">Dokumentasi Pelaksanaan (Foto Kegiatan)</label>
          <div class="space-y-2 mb-3">
-          <div id="foto-list" class="grid grid-cols-3 gap-2"></div>
+          <div id="foto-list" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
          </div>
          <input type="file" id="foto-input" accept="image/*" multiple class="hidden">
-         <button onclick="document.getElementById('foto-input').click()" class="w-full px-4 py-2.5 rounded-lg text-sm font-medium bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/30 transition">
-          <i data-lucide="image-plus" style="width:16px;height:16px;display:inline;margin-right:6px;"></i>Pilih Foto (Max 5)
+         <button onclick="document.getElementById('foto-input').click()" class="w-full px-4 py-2.5 sm:py-2.5 rounded-lg text-sm font-medium bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/30 active:bg-indigo-600/40 transition flex items-center justify-center gap-2">
+          <i data-lucide="image-plus" style="width:16px;height:16px;"></i><span>Pilih Foto (Max 5)</span>
          </button>
          <p class="text-xs text-gray-500 mt-2">Disarankan minimum 5 foto untuk dokumentasi lengkap</p>
         </div>
        </div>
 
        <!-- Progress Bar -->
-       <div class="mt-6 p-4 glass-dark rounded-lg">
-        <div class="flex items-center justify-between mb-3">
+       <div class="mt-5 sm:mt-6 p-3 sm:p-4 glass-dark rounded-lg">
+        <div class="flex items-center justify-between mb-2 sm:mb-3">
          <span class="text-sm font-medium text-white">Progress Checklist</span>
          <span id="progress-text" class="text-sm font-bold text-indigo-400">0/13 Selesai</span>
         </div>
@@ -324,12 +335,12 @@
        </div>
 
        <!-- Action Buttons -->
-       <div class="mt-6 flex flex-col sm:flex-row gap-3">
-        <button onclick="submitReport()" class="btn-primary flex-1 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2">
-         <i data-lucide="send" style="width:16px;height:16px;"></i>Kirim Laporan
+       <div class="mt-5 sm:mt-6 flex flex-col sm:flex-row gap-2.5 sm:gap-3">
+        <button onclick="submitReport()" class="btn-primary flex-1 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 text-sm sm:text-base active:opacity-90">
+         <i data-lucide="send" style="width:16px;height:16px;"></i><span>Kirim Laporan</span>
         </button>
-        <button onclick="resetForm()" class="btn-secondary flex-1 py-3 rounded-lg font-semibold text-gray-300">
-         <i data-lucide="rotate-ccw" style="width:16px;height:16px;display:inline;margin-right:6px;"></i>Reset
+        <button onclick="resetForm()" class="btn-secondary flex-1 py-3 rounded-lg font-semibold text-gray-300 flex items-center justify-center gap-2 text-sm sm:text-base">
+         <i data-lucide="rotate-ccw" style="width:16px;height:16px;"></i><span>Reset</span>
         </button>
        </div>
       </div>
@@ -459,7 +470,6 @@
         if (waveOption) {
           waveSelect.value = panitia.gelombang;
         } else {
-          // Add custom option if gelombang not in list
           const newOpt = document.createElement('option');
           newOpt.value = panitia.gelombang;
           newOpt.textContent = panitia.gelombang;
@@ -478,9 +488,17 @@
         document.getElementById('p-supervisor').value = panitia.nama_pengawas;
       }
 
-      // Show profile card
+      // Show profile card & scroll to it on mobile
       profileCard.style.display = 'block';
       lucide.createIcons();
+
+      // On mobile, scroll to profile card after selecting school
+      if (window.innerWidth < 640) {
+        setTimeout(function() {
+          profileCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 200);
+      }
+
       showToast('Data panitia ' + selectedSchool + ' berhasil dimuat', 'success');
     }
 
@@ -489,17 +507,48 @@
     loadSchools();
 
     // ===== PHOTO HANDLING =====
+    // Kompresi foto menggunakan Canvas API sebelum upload
+    function compressImage(dataUrl, maxWidth, quality) {
+      return new Promise(function(resolve) {
+        var img = new Image();
+        img.onload = function() {
+          var canvas = document.createElement('canvas');
+          var w = img.width;
+          var h = img.height;
+          // Resize jika lebar melebihi maxWidth
+          if (w > maxWidth) {
+            h = Math.round((h * maxWidth) / w);
+            w = maxWidth;
+          }
+          canvas.width = w;
+          canvas.height = h;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          // Export ke JPEG dengan kualitas kompresi
+          var compressed = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressed);
+        };
+        img.onerror = function() { resolve(dataUrl); };
+        img.src = dataUrl;
+      });
+    }
+
     document.getElementById('foto-input').addEventListener('change', function(e) {
-      const files = Array.from(e.target.files);
+      var files = Array.from(e.target.files);
       if (uploadedPhotos.length + files.length > 5) {
         showToast('Maksimal 5 foto saja', 'error');
         return;
       }
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          uploadedPhotos.push({ name: file.name, data: evt.target.result });
-          renderPhotoList();
+      var pending = files.length;
+      files.forEach(function(file) {
+        var reader = new FileReader();
+        reader.onload = async function(evt) {
+          // Kompresi foto: max 800px lebar, kualitas 60%
+          var compressed = await compressImage(evt.target.result, 800, 0.6);
+          uploadedPhotos.push({ name: file.name, data: compressed });
+          pending--;
+          if (pending === 0) renderPhotoList();
+          showToast('Foto "' + file.name + '" ditambahkan (terkompresi)', 'success');
         };
         reader.readAsDataURL(file);
       });
@@ -564,7 +613,6 @@
         return;
       }
 
-      // Catat waktu mulai sesi saat pertama kali save
       if (!sessionStartTime) {
         sessionStartTime = new Date().toISOString();
       }
@@ -588,7 +636,6 @@
         return;
       }
 
-      // Peringatan foto, bukan penghalang
       if (uploadedPhotos.length < 5) {
         showToast('Foto dokumentasi kurang dari 5 (' + uploadedPhotos.length + '/5). Laporan tetap dikirim, disarankan lengkapi kemudian.', 'warning');
       }
@@ -616,6 +663,14 @@
       if (totalChecks === TOTAL_CHECKLIST) status = 'Selesai';
       else if (totalChecks >= 9) status = 'Berlangsung';
       else if (totalChecks >= 4) status = 'Persiapan';
+
+      // Persiapan data foto untuk upload
+      showToast('Mengirim laporan...', 'warning');
+
+      var fotoData = {};
+      for (var fi = 0; fi < uploadedPhotos.length; fi++) {
+        fotoData['foto_' + (fi + 1)] = uploadedPhotos[fi].data;
+      }
 
       const data = {
         proctor_name: name,
@@ -652,6 +707,8 @@
         progress_persen: progress,
         last_update: new Date().toISOString()
       };
+      // Gabungkan foto ke data
+      Object.assign(data, fotoData);
 
       try {
         await firebase.database().ref('siap_tka_monitoring').push().set(data);
@@ -738,21 +795,20 @@
     function renderPhotoList() {
       const container = document.getElementById('foto-list');
       if (uploadedPhotos.length === 0) {
-        container.innerHTML = '<p class="text-xs text-gray-500 col-span-3 text-center py-4">Belum ada foto dipilih</p>';
+        container.innerHTML = '<p class="text-xs text-gray-500 col-span-2 sm:col-span-3 text-center py-4">Belum ada foto dipilih</p>';
         return;
       }
       container.innerHTML = uploadedPhotos.map((photo, idx) => `
         <div class="relative group">
-         <img src="${photo.data}" alt="Foto ${idx + 1}" class="w-full h-20 object-cover rounded-lg border border-white/10">
-         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-lg flex items-center justify-center">
-          <button onclick="removePhoto(${idx})" class="text-red-400 hover:text-red-300">
-           <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
+         <img src="${photo.data}" alt="Foto ${idx + 1}" class="w-full h-24 sm:h-20 object-cover rounded-lg border border-white/10">
+         <div class="photo-delete-overlay absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-lg flex items-center justify-center">
+          <button onclick="removePhoto(${idx})" class="w-8 h-8 flex items-center justify-center rounded-full bg-red-600/80 text-white active:bg-red-600">
+           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
           </button>
          </div>
          <span class="absolute top-1 right-1 bg-indigo-600 text-white text-xs px-1.5 py-0.5 rounded">${idx + 1}</span>
         </div>
       `).join('');
-      lucide.createIcons();
     }
 
     function removePhoto(idx) {
@@ -769,7 +825,7 @@
       if (type === 'success') bg = 'bg-green-500/20 border-green-500/30 text-green-300';
       else if (type === 'warning') bg = 'bg-yellow-500/20 border-yellow-500/30 text-yellow-300';
       else bg = 'bg-red-500/20 border-red-500/30 text-red-300';
-      div.className = 'toast px-4 py-3 rounded-lg border text-sm font-medium ' + bg + ' backdrop-blur-sm';
+      div.className = 'toast px-4 py-3 rounded-lg border text-sm font-medium leading-snug ' + bg + ' backdrop-blur-sm';
       div.textContent = msg;
       container.appendChild(div);
       setTimeout(() => { if (div.parentNode) div.remove(); }, 3500);
